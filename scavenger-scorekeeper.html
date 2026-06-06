@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scavenger Hunt — Live Scores</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:        #0B2545;
+    --navy-2:      #0E2D54;   /* panel surfaces */
+    --navy-3:      #123564;   /* cell hover (lighter than bg) */
+    --line:        #244268;   /* grid lines / borders */
+    --orange:      #FF6B1A;
+    --orange-deep: #E55A0C;
+    --white:       #FFFFFF;
+    --muted:       #A8B2C1;
+    --head-font:   'Oswald', 'Arial Narrow', system-ui, sans-serif;
+    --title-font:  'Anton', 'Oswald', Impact, system-ui, sans-serif;
+    --body-font:   'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--navy);
+    color: var(--white);
+    font-family: var(--body-font);
+    overflow: hidden;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    padding: 18px 22px 22px;
+    gap: 16px;
+  }
+
+  /* ============ TOP BAR ============ */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    flex: 0 0 auto;
+  }
+
+  .title {
+    font-family: var(--title-font);
+    font-size: 42px;
+    letter-spacing: 1px;
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .title .accent { color: var(--orange); }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+  }
+
+  #nameInput {
+    font-family: var(--body-font);
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--white);
+    background: var(--navy-2);
+    border: 2px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 16px;
+    width: 280px;
+    outline: none;
+    transition: border-color .15s ease;
+  }
+  #nameInput::placeholder { color: var(--muted); }
+  #nameInput:focus { border-color: var(--orange); }
+
+  button {
+    font-family: var(--head-font);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    font-size: 17px;
+    color: var(--white);
+    background: var(--navy-2);
+    border: 2px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease, transform .05s ease;
+  }
+  button:hover { background: var(--navy-3); }
+  button:active { transform: scale(.97); }
+
+  button.primary {
+    background: var(--orange);
+    border-color: var(--orange);
+    color: var(--navy);
+  }
+  button.primary:hover { background: var(--orange-deep); border-color: var(--orange-deep); }
+
+  /* ============ LEGEND ============ */
+  .legend {
+    flex: 0 0 auto;
+    font-size: 14px;
+    color: var(--muted);
+    letter-spacing: .3px;
+    margin-top: -6px;
+  }
+  .legend b { color: var(--white); font-weight: 600; }
+  .legend .dot { color: var(--line); margin: 0 8px; }
+
+  /* ============ ITEM KEY ============ */
+  .item-key {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 24px;
+    align-items: baseline;
+    background: var(--navy-2);
+    border: 2px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 18px;
+  }
+  .key-label {
+    font-family: var(--head-font);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 16px;
+    color: var(--muted);
+    margin-right: 4px;
+  }
+  .key-chip {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 17px;
+  }
+  .key-num {
+    font-family: var(--head-font);
+    font-weight: 700;
+    font-size: 19px;
+    color: var(--orange);
+    min-width: 16px;
+    text-align: right;
+  }
+  .key-edit {
+    color: var(--white);
+    outline: none;
+    cursor: text;
+    border-bottom: 1px dashed rgba(168, 178, 193, .35);
+    padding: 1px 2px;
+  }
+  .key-edit:focus { border-bottom-color: var(--orange); background: var(--navy-3); }
+
+  /* ============ MAIN TWO-PANE ============ */
+  .main {
+    flex: 1 1 auto;
+    display: flex;
+    gap: 18px;
+    min-height: 0;
+  }
+
+  .grid-pane {
+    flex: 0 0 65%;
+    background: var(--navy-2);
+    border: 2px solid var(--line);
+    border-radius: 12px;
+    overflow: auto;
+    min-height: 0;
+  }
+  .board-pane {
+    flex: 1 1 35%;
+    background: var(--navy-2);
+    border: 2px solid var(--line);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* ============ SCORING GRID ============ */
+  table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--navy);
+    border-bottom: 3px solid var(--orange);
+    padding: 10px 5px;
+    vertical-align: bottom;
+  }
+  thead th.corner { z-index: 6; }
+
+  .col-item {
+    font-family: var(--head-font);
+    font-weight: 700;
+    font-size: 30px;
+    line-height: 1;
+    color: var(--orange);
+    width: 64px;
+  }
+
+  th.col-name {
+    font-family: var(--head-font);
+    text-transform: uppercase;
+    font-size: 18px;
+    letter-spacing: .5px;
+    text-align: left;
+    width: 190px;
+  }
+  th.col-bonus, th.col-total {
+    font-family: var(--head-font);
+    text-transform: uppercase;
+    font-size: 18px;
+    letter-spacing: .4px;
+    width: 92px;
+  }
+  th.col-bonus .sub {
+    display: block;
+    font-family: var(--body-font);
+    text-transform: none;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0;
+    margin-top: 3px;
+  }
+
+  tbody td {
+    border-bottom: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    height: 64px;
+    text-align: center;
+    font-size: 20px;
+  }
+  tbody tr td:last-child { border-right: none; }
+
+  .name-cell {
+    text-align: left;
+    padding: 0 8px 0 16px;
+    font-size: 20px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .name-cell .name-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .remove-btn {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    line-height: 1;
+    padding: 0;
+    font-size: 20px;
+    font-family: var(--body-font);
+    border-radius: 6px;
+    background: transparent;
+    border: 1.5px solid var(--line);
+    color: var(--muted);
+  }
+  .remove-btn:hover { background: var(--orange); border-color: var(--orange); color: var(--navy); }
+
+  /* clickable item cell */
+  .item-cell {
+    cursor: pointer;
+    min-width: 60px;
+    user-select: none;
+    transition: background .12s ease;
+  }
+  .item-cell:hover { background: var(--navy-3); }
+  .item-cell.on {
+    background: var(--orange);
+    color: var(--navy);
+    font-weight: 700;
+  }
+  .item-cell.on:hover { background: var(--orange-deep); }
+  .item-cell .mark { font-size: 24px; font-weight: 700; }
+
+  /* bonus cell */
+  .bonus-cell {
+    cursor: pointer;
+    user-select: none;
+    font-weight: 700;
+    font-size: 22px;
+    transition: background .12s ease;
+  }
+  .bonus-cell:hover { background: var(--navy-3); }
+  .bonus-cell.has { color: var(--orange); }
+
+  /* total cell */
+  .total-cell {
+    font-family: var(--head-font);
+    font-weight: 700;
+    font-size: 26px;
+    background: rgba(255,107,26,0.08);
+  }
+
+  /* click pulse */
+  @keyframes pulse {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.16); }
+    100% { transform: scale(1); }
+  }
+  .pulse { animation: pulse .26s ease; }
+
+  .empty-grid {
+    padding: 60px 30px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 20px;
+  }
+
+  /* ============ LEADERBOARD ============ */
+  .board-head {
+    flex: 0 0 auto;
+    font-family: var(--head-font);
+    text-transform: uppercase;
+    font-size: 24px;
+    letter-spacing: 1px;
+    padding: 16px 20px 14px;
+    border-bottom: 3px solid var(--orange);
+    background: var(--navy);
+  }
+
+  .board-body {
+    position: relative;
+    flex: 1 1 auto;
+    overflow: auto;
+    padding: 14px;
+  }
+
+  #lbRows { position: relative; }
+
+  .lb-row {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 16px;
+    background: var(--navy-3);
+    border: 2px solid var(--line);
+    border-radius: 10px;
+    transition: transform .45s cubic-bezier(.22,1,.36,1),
+                background .25s ease, border-color .25s ease;
+    will-change: transform;
+  }
+  .lb-rank {
+    font-family: var(--head-font);
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--muted);
+    width: 30px;
+    text-align: center;
+    flex: 0 0 auto;
+  }
+  .lb-name {
+    font-weight: 600;
+    font-size: 21px;
+    flex: 1 1 auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .lb-score {
+    font-family: var(--head-font);
+    font-weight: 700;
+    font-size: 28px;
+    flex: 0 0 auto;
+    min-width: 36px;
+    text-align: right;
+  }
+  .lb-badge {
+    flex: 0 0 auto;
+    display: none;
+    font-family: var(--head-font);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--navy);
+    background: var(--navy);
+    border-radius: 5px;
+    padding: 3px 8px;
+  }
+
+  .lb-row.leader {
+    background: var(--orange);
+    border-color: var(--orange);
+    color: var(--navy);
+    height: 64px;
+  }
+  .lb-row.leader .lb-rank { color: var(--navy); }
+  .lb-row.leader .lb-name { font-size: 24px; font-weight: 700; }
+  .lb-row.leader .lb-score { font-size: 32px; }
+  .lb-row.leader .lb-badge {
+    display: inline-block;
+    background: var(--navy);
+    color: var(--orange);
+  }
+
+  .empty-board {
+    color: var(--muted);
+    font-size: 19px;
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  /* scrollbars */
+  ::-webkit-scrollbar { width: 12px; height: 12px; }
+  ::-webkit-scrollbar-track { background: var(--navy); }
+  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 6px; }
+  ::-webkit-scrollbar-thumb:hover { background: #2f5286; }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="title">Scavenger Hunt <span class="accent">— Live Scores</span></div>
+    <div class="controls">
+      <input id="nameInput" type="text" placeholder="Add a player…" autocomplete="off" spellcheck="false">
+      <button id="addBtn" class="primary">Add</button>
+      <button id="resetBtn">Reset scores</button>
+    </div>
+  </div>
+
+  <div class="legend">
+    <b>Item</b> click = 1 point
+    <span class="dot">•</span>
+    <b>Bonus</b> click = +1, shift-click or right-click = −1
+    <span class="dot">•</span>
+    <b>Items</b> are editable in the key below
+  </div>
+
+  <div class="item-key" id="itemKey"></div>
+
+  <div class="main">
+    <!-- SCORING GRID -->
+    <div class="grid-pane">
+      <table id="grid">
+        <thead>
+          <tr id="headRow">
+            <th class="col-name corner">Player</th>
+            <!-- item columns injected -->
+            <th class="col-bonus">Bonus<span class="sub">funniest</span></th>
+            <th class="col-total">Total</th>
+          </tr>
+        </thead>
+        <tbody id="gridBody"></tbody>
+      </table>
+      <div id="emptyGrid" class="empty-grid">Add players from the top bar to start scoring.</div>
+    </div>
+
+    <!-- LEADERBOARD -->
+    <div class="board-pane">
+      <div class="board-head">Leaderboard</div>
+      <div class="board-body">
+        <div id="lbRows"></div>
+        <div id="emptyBoard" class="empty-board">Add participants to begin</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  const DEFAULT_ITEMS = [
+    "Something red",
+    "An egg",
+    "An instrument",
+    "Something fuzzy",
+    "Something starting with B",
+    "Your weirdest mug",
+    "A souvenir from a different country",
+    "A piece of tech (not a laptop or phone)"
+  ];
+
+  const state = {
+    items: DEFAULT_ITEMS.slice(),
+    participants: []   // { id, name, scores:[8], bonus }
+  };
+
+  let nextId = 1;
+
+  // DOM refs
+  const headRow    = document.getElementById("headRow");
+  const gridBody   = document.getElementById("gridBody");
+  const emptyGrid  = document.getElementById("emptyGrid");
+  const lbRowsEl   = document.getElementById("lbRows");
+  const emptyBoard = document.getElementById("emptyBoard");
+  const nameInput  = document.getElementById("nameInput");
+
+  const rowEls = {};   // id -> { tr, itemCells:[], bonusCell, totalCell }
+  const lbEls  = {};   // id -> { row, rank, name, score }
+
+  const LB_STRIDE = 68; // px between leaderboard rows
+
+  // ---------- helpers ----------
+  function totalOf(p) {
+    let t = p.bonus;
+    for (let i = 0; i < p.scores.length; i++) t += p.scores[i];
+    return t;
+  }
+
+  function pulse(cell) {
+    cell.classList.remove("pulse");
+    // force reflow so the animation can restart on rapid clicks
+    void cell.offsetWidth;
+    cell.classList.add("pulse");
+  }
+
+  // ---------- header (items) ----------
+  function buildHeader() {
+    // item columns are just numbers; the names live in the editable key strip
+    const bonusTh = headRow.querySelector(".col-bonus");
+    state.items.forEach(function (text, i) {
+      const th = document.createElement("th");
+      th.className = "col-item";
+      th.textContent = String(i + 1);
+      headRow.insertBefore(th, bonusTh);
+    });
+  }
+
+  function buildItemKey() {
+    const key = document.getElementById("itemKey");
+    const label = document.createElement("span");
+    label.className = "key-label";
+    label.textContent = "Items";
+    key.appendChild(label);
+    state.items.forEach(function (text, i) {
+      const chip = document.createElement("div");
+      chip.className = "key-chip";
+      const num = document.createElement("span");
+      num.className = "key-num";
+      num.textContent = (i + 1);
+      const edit = document.createElement("span");
+      edit.className = "key-edit";
+      edit.contentEditable = "true";
+      edit.spellcheck = false;
+      edit.textContent = text;
+      edit.addEventListener("input", function () {
+        state.items[i] = edit.textContent.trim();
+      });
+      edit.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); edit.blur(); }
+      });
+      chip.appendChild(num);
+      chip.appendChild(edit);
+      key.appendChild(chip);
+    });
+  }
+
+  // ---------- grid rows ----------
+  function addParticipant(name) {
+    const p = { id: nextId++, name: name, scores: new Array(state.items.length).fill(0), bonus: 0 };
+    state.participants.push(p);
+    buildRow(p);
+    updateEmptyStates();
+    renderLeaderboard();
+  }
+
+  function buildRow(p) {
+    const tr = document.createElement("tr");
+
+    // name cell + remove
+    const nameTd = document.createElement("td");
+    nameTd.className = "name-cell";
+    const wrap = document.createElement("div");
+    wrap.className = "name-wrap";
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = p.name;
+    nameSpan.title = "";
+    const rm = document.createElement("button");
+    rm.className = "remove-btn";
+    rm.textContent = "×";
+    rm.setAttribute("aria-label", "Remove " + p.name);
+    rm.addEventListener("click", function () { removeParticipant(p); });
+    wrap.appendChild(nameSpan);
+    wrap.appendChild(rm);
+    nameTd.appendChild(wrap);
+    tr.appendChild(nameTd);
+
+    // item cells
+    const itemCells = [];
+    for (let i = 0; i < state.items.length; i++) {
+      const td = document.createElement("td");
+      td.className = "item-cell";
+      const mark = document.createElement("span");
+      mark.className = "mark";
+      mark.textContent = "";
+      td.appendChild(mark);
+      (function (idx) {
+        td.addEventListener("click", function () {
+          p.scores[idx] = p.scores[idx] ? 0 : 1;
+          td.classList.toggle("on", p.scores[idx] === 1);
+          mark.textContent = p.scores[idx] ? "✓" : "";
+          pulse(td);
+          refresh(p);
+        });
+      })(i);
+      itemCells.push(td);
+      tr.appendChild(td);
+    }
+
+    // bonus cell
+    const bonusTd = document.createElement("td");
+    bonusTd.className = "bonus-cell";
+    bonusTd.textContent = "0";
+    function setBonus(v) {
+      p.bonus = Math.max(0, v);
+      bonusTd.textContent = String(p.bonus);
+      bonusTd.classList.toggle("has", p.bonus > 0);
+      pulse(bonusTd);
+      refresh(p);
+    }
+    bonusTd.addEventListener("click", function (e) {
+      if (e.shiftKey) setBonus(p.bonus - 1);
+      else setBonus(p.bonus + 1);
+    });
+    bonusTd.addEventListener("contextmenu", function (e) {
+      e.preventDefault();
+      setBonus(p.bonus - 1);
+    });
+    tr.appendChild(bonusTd);
+
+    // total cell
+    const totalTd = document.createElement("td");
+    totalTd.className = "total-cell";
+    totalTd.textContent = "0";
+    tr.appendChild(totalTd);
+
+    gridBody.appendChild(tr);
+    rowEls[p.id] = { tr: tr, itemCells: itemCells, bonusCell: bonusTd, totalCell: totalTd };
+  }
+
+  function removeParticipant(p) {
+    if (!confirm("Remove " + p.name + " from the game?")) return;
+    const refs = rowEls[p.id];
+    if (refs) { refs.tr.remove(); delete rowEls[p.id]; }
+    const lb = lbEls[p.id];
+    if (lb) { lb.row.remove(); delete lbEls[p.id]; }
+    state.participants = state.participants.filter(function (x) { return x.id !== p.id; });
+    updateEmptyStates();
+    renderLeaderboard();
+  }
+
+  function refresh(p) {
+    const refs = rowEls[p.id];
+    if (refs) refs.totalCell.textContent = String(totalOf(p));
+    renderLeaderboard();
+  }
+
+  // ---------- leaderboard ----------
+  function renderLeaderboard() {
+    const list = state.participants.slice().sort(function (a, b) {
+      const ta = totalOf(a), tb = totalOf(b);
+      if (tb !== ta) return tb - ta;
+      return a.name.localeCompare(b.name);
+    });
+
+    const maxTotal = list.length ? totalOf(list[0]) : 0;
+
+    list.forEach(function (p, i) {
+      let refs = lbEls[p.id];
+      let isNew = false;
+      if (!refs) {
+        isNew = true;
+        const row = document.createElement("div");
+        row.className = "lb-row";
+        const rank = document.createElement("span");
+        rank.className = "lb-rank";
+        const name = document.createElement("span");
+        name.className = "lb-name";
+        name.textContent = p.name;
+        const badge = document.createElement("span");
+        badge.className = "lb-badge";
+        badge.textContent = "LEAD";
+        const score = document.createElement("span");
+        score.className = "lb-score";
+        row.appendChild(rank);
+        row.appendChild(name);
+        row.appendChild(badge);
+        row.appendChild(score);
+        lbRowsEl.appendChild(row);
+        refs = lbEls[p.id] = { row: row, rank: rank, name: name, score: score };
+      }
+
+      refs.rank.textContent = (i + 1);
+      refs.name.textContent = p.name;
+      refs.score.textContent = String(totalOf(p));
+
+      const isLeader = maxTotal > 0 && totalOf(p) === maxTotal;
+      refs.row.classList.toggle("leader", isLeader);
+
+      const y = i * LB_STRIDE;
+      if (isNew) {
+        // place without sliding from the top
+        refs.row.style.transition = "none";
+        refs.row.style.transform = "translateY(" + y + "px)";
+        void refs.row.offsetWidth;
+        refs.row.style.transition = "";
+      } else {
+        refs.row.style.transform = "translateY(" + y + "px)";
+      }
+    });
+
+    lbRowsEl.style.height = (list.length * LB_STRIDE) + "px";
+    emptyBoard.style.display = list.length ? "none" : "block";
+  }
+
+  function updateEmptyStates() {
+    const has = state.participants.length > 0;
+    emptyGrid.style.display = has ? "none" : "block";
+    document.getElementById("grid").style.display = has ? "table" : "none";
+  }
+
+  // ---------- reset ----------
+  function resetScores() {
+    if (!state.participants.length) return;
+    if (!confirm("Reset all scores? Participants will be kept.")) return;
+    state.participants.forEach(function (p) {
+      p.scores = new Array(state.items.length).fill(0);
+      p.bonus = 0;
+      const refs = rowEls[p.id];
+      if (refs) {
+        refs.itemCells.forEach(function (td) {
+          td.classList.remove("on");
+          td.querySelector(".mark").textContent = "";
+        });
+        refs.bonusCell.textContent = "0";
+        refs.bonusCell.classList.remove("has");
+        refs.totalCell.textContent = "0";
+      }
+    });
+    renderLeaderboard();
+  }
+
+  // ---------- input wiring ----------
+  function submitName() {
+    const v = nameInput.value.trim();
+    if (!v) { nameInput.focus(); return; }
+    addParticipant(v);
+    nameInput.value = "";
+    nameInput.focus();
+  }
+
+  document.getElementById("addBtn").addEventListener("click", submitName);
+  nameInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); submitName(); }
+  });
+  document.getElementById("resetBtn").addEventListener("click", resetScores);
+
+  // ---------- init ----------
+  buildHeader();
+  buildItemKey();
+  updateEmptyStates();
+  renderLeaderboard();
+  nameInput.focus();
+})();
+</script>
+</body>
+</html>
